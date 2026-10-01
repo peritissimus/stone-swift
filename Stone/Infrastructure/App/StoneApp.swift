@@ -6,7 +6,7 @@ struct StoneApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        // Stone desktop's own tray mark, a template image so it follows the menu bar's tint.
+        // A template image, so it follows the menu bar's light or dark tint.
         MenuBarExtra("Stone", image: "StoneMark") {
             MenuBarMenu(container: delegate.container)
         }

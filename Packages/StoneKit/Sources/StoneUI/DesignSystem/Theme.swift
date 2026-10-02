@@ -42,7 +42,6 @@ enum Theme {
         static let rowSubtitle = SwiftUI.Font.system(size: 11)
         static let previewTitle = SwiftUI.Font.system(size: 17, weight: .semibold)
         static let preview = SwiftUI.Font.system(size: 13.5)
-        static let label = SwiftUI.Font.system(size: 11, weight: .medium)
         static let footer = SwiftUI.Font.system(size: 11)
     }
 

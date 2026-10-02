@@ -28,15 +28,11 @@ struct QuickPanelView: View {
             switch panel.screen {
             case .capture:
                 hint("↩", "Save")
-                hint("⇧↩", "New line")
                 hint("⌥O", "Notes")
                 hint("⌘J", "Today")
-                hint("esc", "Close")
             case .browse:
-                hint("↑↓", "Select")
                 hint("↩", "Copy")
                 hint("⌘J", "Today")
-                hint("esc", "Back")
             }
         }
         .font(Theme.Font.footer)

@@ -83,7 +83,6 @@ struct BrowseView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                     Text(note.title).font(Theme.Font.previewTitle)
-                    Text(note.path.value).font(Theme.Font.rowSubtitle).foregroundStyle(.tertiary)
                     Text(Self.render(note.body))
                         .font(Theme.Font.preview)
                         .textSelection(.enabled)

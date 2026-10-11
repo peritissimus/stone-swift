@@ -34,6 +34,45 @@ It only reads Stone desktop's `~/.config/stone/config.json` and never writes it.
 
 `STONE_WORKSPACE=/some/dir` points a single run at another folder.
 
+## Search
+
+The Swift app searches Stone desktop's existing database at
+`~/.config/stone/stone-data/notes.db`, scoped to the configured workspace. It reuses desktop's FTS5
+chunks and stored BGE embeddings. The workspace must already be registered in Stone desktop; desktop
+owns database creation and migrations.
+
+Captures commit Markdown first, queue a transactional text-index update, and generate embeddings in
+the background. A startup scan and scans every 30 seconds reconcile external additions and edits.
+Unchanged content keeps its existing vectors. Removing a file removes its derived search rows;
+desktop note IDs, favorites, pins, notebook assignments, tags, and deletion state are preserved.
+The only additional table is `stone_swift_index_state`, in the same database, for file timestamps and
+content fingerprints. The desktop importer also uses atomic path-based creation so both apps can
+adopt the same note identity when they discover a new file concurrently.
+
+Semantic search uses the same `Xenova/bge-small-en-v1.5` model and 384-dimensional Float32 vectors as
+desktop. Search merges keyword and semantic candidates and reranks up to 30 notes with desktop's
+`Xenova/ms-marco-MiniLM-L-6-v2` cross-encoder. Reranking is query-dependent; embeddings are generated
+when notes change. Native chunking and content hashes follow the desktop format.
+
+The Swift interface starts a small Node helper on demand, which runs Stone's existing model worker
+without opening Electron. It reuses `~/.config/stone/ml-cache`, releases the process after idle time,
+and needs no API key. Node must be installed and the desktop worker and its dependencies must be
+available (either the installed desktop app or a built Stone checkout). On this development layout,
+`~/projects/stone/dist/main/workers/embedding.worker.cjs` is found automatically. The worker may
+download its public model weights if they are missing from the cache.
+
+| Override | Purpose |
+| --- | --- |
+| `STONE_DATABASE_PATH` | Path to an existing desktop database |
+| `STONE_EMBEDDING_WORKER` | Absolute path to desktop's built `embedding.worker.cjs` |
+| `STONE_NODE_PATH` | Node executable; otherwise discovered through PATH and standard Homebrew locations |
+| `STONE_ML_CACHE` | Model cache directory, default `~/.config/stone/ml-cache` |
+
+If the model process is unavailable, SQLite keyword search and deterministic ranking continue.
+If the database is unavailable or the workspace is unregistered, search falls back to Markdown.
+A successfully saved capture remains successful if indexing fails; later scans retry it. Tests use
+isolated desktop-schema fixtures rather than modifying the real database.
+
 ## Run the dev build
 
 ```sh
@@ -44,7 +83,7 @@ open "build/Build/Products/Debug/Stone Dev.app"      # your real workspace
 pkill -f "Stone Dev"                                 # quit (or menu bar → Quit)
 ```
 
-You can also run `xcodegen generate && open Stone.xcodeproj`, then press ⌘R. Requires Xcode 16+ and macOS 15+. No dependencies.
+You can also run `xcodegen generate && open Stone.xcodeproj`, then press ⌘R. Requires Xcode 16+ and macOS 15+. The Swift package uses system SQLite; semantic search also uses the desktop model runtime described above.
 
 ## Architecture
 
@@ -54,7 +93,7 @@ The code is hexagonal, and each layer is its own SwiftPM target, so a forbidden 
 Packages/StoneKit/Sources/
   StoneDomain/        NoteEntity, JournalDate, LocationPolicy, AppConfig, JournalComposer, NoteSearchScorer, ports   → Foundation only
   StoneApplication/   CaptureToJournal, GetTodayJournal, ListNotes, OpenNote, SearchNotes (+ facades/factories)      → StoneDomain
-  StoneAdaptersOut/   FileSystemNoteRepository, AppConfigRepository (read-only), SystemClock                        → StoneDomain
+  StoneAdaptersOut/   Filesystem, shared SQLite search, desktop model process, read-only config, clock               → StoneDomain
   StoneUI/            the panel, CaptureStore, BrowseStore, hotkey, HUD                                              → StoneDomain in-ports
 Stone/Infrastructure/ AppContainer (composition root), @main, AppDelegate
 ```

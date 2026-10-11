@@ -7,6 +7,27 @@ struct FileSystemNoteRepositoryTests {
     let root: URL = FileManager.default.temporaryDirectory
         .appendingPathComponent("stone-tests-\(UUID().uuidString)", isDirectory: true)
 
+    @Test func unavailableWorkspaceThrowsInsteadOfReportingNoNotes() async throws {
+        let repo = FileSystemNoteRepository(root: root)
+        await #expect(throws: (any Error).self) { try await repo.listNotes() }
+    }
+
+    @Test(.enabled(if: NSUserName() != "root", "Root bypasses filesystem permission checks"))
+    func unreadableSubfolderInvalidatesEntireScanAndIsNotMissing() async throws {
+        let repo = FileSystemNoteRepository(root: root)
+        let path = try NotePath("Private/a.md")
+        let folder = root.appendingPathComponent("Private")
+        try await repo.write("# A\n\nsecret", to: path)
+        try await repo.write("# B\n\nvisible", to: NotePath("b.md"))
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path)
+            try? FileManager.default.removeItem(at: root)
+        }
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: folder.path)
+        await #expect(throws: (any Error).self) { try await repo.listNotes() }
+        await #expect(throws: (any Error).self) { try await repo.info(path) }
+    }
+
     @Test func writesListsAndReadsSkippingHidden() async throws {
         defer { try? FileManager.default.removeItem(at: root) }
         let repo = FileSystemNoteRepository(root: root)

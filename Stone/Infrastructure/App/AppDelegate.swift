@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         isTerminating = true
         Task { @MainActor in
             await container.shell?.prepareForTermination()
+            await container.stopSearch()
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

@@ -6,13 +6,13 @@ cd "$(dirname "$0")/../Packages/StoneKit/Sources"
 fail=0
 check() { # layer, allowed-imports regex
   local bad
-  bad=$(grep -rhn '^import ' "$1" | grep -Ev "^[0-9]+:import ($2)$" || true)
-  if [[ -n "$bad" ]]; then echo "✘ $1 imports outside ($2):"; grep -rn '^import ' "$1" | grep -Ev "import ($2)$"; fail=1; fi
+  bad=$(grep -rhn --include='*.swift' '^import ' "$1" | grep -Ev "^[0-9]+:import ($2)$" || true)
+  if [[ -n "$bad" ]]; then echo "✘ $1 imports outside ($2):"; grep -rn --include='*.swift' '^import ' "$1" | grep -Ev "import ($2)$"; fail=1; fi
 }
 
 check StoneDomain      'Foundation'
 check StoneApplication 'Foundation|StoneDomain'
-check StoneAdaptersOut 'Foundation|StoneDomain'
+check StoneAdaptersOut 'Foundation|StoneDomain|CSQLite'
 check StoneUI          'Foundation|StoneDomain|AppKit|SwiftUI|Observation|Carbon\.HIToolbox'
 
 # PascalCase files hold exactly one named type; camelCase files hold no types at all.

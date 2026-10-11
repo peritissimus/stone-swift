@@ -7,11 +7,16 @@ public final class CaptureToJournalUseCase: Sendable {
     private let repository: any INoteRepository
     private let clock: any IClock
     private let policy: LocationPolicy
+    private let indexer: NoteSearchIndexer?
 
-    public init(repository: any INoteRepository, clock: any IClock, policy: LocationPolicy) {
+    public init(
+        repository: any INoteRepository, clock: any IClock, policy: LocationPolicy,
+        indexer: NoteSearchIndexer? = nil
+    ) {
         self.repository = repository
         self.clock = clock
         self.policy = policy
+        self.indexer = indexer
     }
 
     public func execute(_ text: String, writtenAt now: Date) async throws -> NoteEntity {
@@ -23,7 +28,11 @@ public final class CaptureToJournalUseCase: Sendable {
         let base = existing ?? JournalComposer.seed(for: day)
         let updated = JournalComposer.append(text, at: time, to: base)
         // A blank capture changes nothing, so it must not create the day's file either.
-        if updated != base { try await repository.write(updated, to: path) }
-        return NoteEntity(path: path, source: updated, modifiedAt: now, policy: policy)
+        let note = NoteEntity(path: path, source: updated, modifiedAt: now, policy: policy)
+        if updated != base {
+            try await repository.write(updated, to: path)
+            await indexer?.noteAdded(note)
+        }
+        return note
     }
 }

@@ -5,5 +5,5 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 (cd "$root/Packages/StoneKit" && swift test)
 "$root/Scripts/lint-architecture.sh"
 (cd "$root" && xcodegen generate >/dev/null && xcodebuild -project Stone.xcodeproj -scheme Stone \
-  -configuration Debug -derivedDataPath build -destination 'platform=macOS' build -quiet)
+  -configuration Debug -derivedDataPath build -destination "platform=macOS,arch=$(uname -m)" build -quiet)
 echo "✔ all checks passed"

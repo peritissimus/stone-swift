@@ -13,7 +13,7 @@ graph enforces the dependency rule; `Scripts/lint-architecture.sh` enforces the 
 | --- | --- | --- |
 | `StoneDomain` | Foundation | Entities (`NoteEntity`), value objects (`NotePath`, `JournalDate`, `AppConfig`…), pure services (`JournalComposer`, `NoteSearchScorer`…), errors, ports |
 | `StoneApplication` | StoneDomain | Per-action `XxxUseCase` classes, a `XxxUseCases` facade implementing the in-port, and a `createXxxUseCases` factory |
-| `StoneAdaptersOut` | StoneDomain | Out-port implementations: filesystem, Stone config (read-only), clock |
+| `StoneAdaptersOut` | StoneDomain, Foundation, CSQLite | Out-port implementations: filesystem, shared SQLite search, desktop model process, Stone config (read-only), clock |
 | `StoneUI` | StoneDomain, AppKit, SwiftUI | The capture panel. It sees in-port facades only, bundled in `StoneServices` |
 | `Stone/Infrastructure` | everything | `AppContainer` is the only place concrete adapters are constructed |
 
@@ -26,6 +26,11 @@ graph enforces the dependency rule; `Scripts/lint-architecture.sh` enforces the 
 - **Config is Stone desktop's `~/.config/stone/config.json`, read-only.** Stone owns and normalizes
   that file (it drops unknown keys), so this app never writes it.
 - **Storage format is Stone desktop's**: journal seeds `# YYYY-MM-DD\n\n`, captures append `\n\n[HH:MM] text`, dot-folders ignored.
+- **Search uses desktop's existing database:** preserve desktop note identities, metadata, tombstones,
+  and migrations. Scope every operation to the selected workspace. Only derived chunk/index rows and
+  namespaced file-state bookkeeping are reconciled. Captures commit Markdown before best-effort indexing.
+  Reuse desktop's BGE384 embeddings and MiniLM reranker through its worker; never mix embedding models.
+  Background model work and SQL stay behind domain out-ports. Reranking is query-dependent.
 
 ## Done means
 

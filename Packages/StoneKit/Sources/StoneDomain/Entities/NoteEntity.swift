@@ -5,6 +5,8 @@ public struct NoteEntity: Hashable, Sendable, Identifiable {
     public let path: NotePath
     public let title: String
     public let body: String
+    /// Exact Markdown bytes as decoded, retained for the shared desktop index's content hash.
+    public let source: String
     public let isJournal: Bool
     public let modifiedAt: Date
 
@@ -16,6 +18,7 @@ public struct NoteEntity: Hashable, Sendable, Identifiable {
         self.isJournal = policy.isJournal(path)
         self.title = isJournal ? path.stem : (parts.title ?? path.stem)
         self.body = parts.title == nil ? source : parts.body
+        self.source = source
         self.modifiedAt = modifiedAt
     }
 

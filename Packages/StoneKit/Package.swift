@@ -17,14 +17,17 @@ let package = Package(
         .target(name: "StoneDomain"),
         // Use cases: orchestrate domain + out ports. No platform code.
         .target(name: "StoneApplication", dependencies: ["StoneDomain"]),
-        // Driven adapters: filesystem, Stone's config, clock.
-        .target(name: "StoneAdaptersOut", dependencies: ["StoneDomain"]),
+        .systemLibrary(name: "CSQLite", pkgConfig: "sqlite3"),
+        // Driven adapters: filesystem, local search, Stone's config, clock.
+        .target(
+            name: "StoneAdaptersOut", dependencies: ["StoneDomain", "CSQLite"],
+            resources: [.copy("Resources")]),
         // Driving adapter: the capture panel. Talks to in-ports only.
         .target(name: "StoneUI", dependencies: ["StoneDomain"]),
 
         .testTarget(name: "StoneDomainTests", dependencies: ["StoneDomain"]),
         .testTarget(name: "StoneApplicationTests", dependencies: ["StoneDomain", "StoneApplication"]),
-        .testTarget(name: "StoneAdaptersOutTests", dependencies: ["StoneDomain", "StoneAdaptersOut"]),
+        .testTarget(name: "StoneAdaptersOutTests", dependencies: ["StoneDomain", "StoneAdaptersOut", "CSQLite"]),
         .testTarget(name: "StoneUITests", dependencies: ["StoneDomain", "StoneUI"]),
     ]
 )

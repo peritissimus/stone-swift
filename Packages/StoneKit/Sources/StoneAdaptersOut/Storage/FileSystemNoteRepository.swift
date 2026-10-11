@@ -12,24 +12,31 @@ public final class FileSystemNoteRepository: INoteRepository {
     public var locationDescription: String { root.path }
 
     public func listNotes() async throws -> [NoteFileInfo] {
-        walkNotes()
+        try walkNotes()
     }
 
     /// Synchronous: `DirectoryEnumerator` cannot be iterated from an async context.
-    private func walkNotes() -> [NoteFileInfo] {
+    private func walkNotes() throws -> [NoteFileInfo] {
+        guard try root.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else {
+            throw CocoaError(.fileReadUnknown)
+        }
         let keys: [URLResourceKey] = [.isRegularFileKey, .isSymbolicLinkKey, .contentModificationDateKey]
+        var enumerationError: (any Error)?
         guard
             let walker = FileManager.default.enumerator(
-                at: root, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants])
-        else { return [] }
+                at: root, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants],
+                errorHandler: { _, error in enumerationError = error; return false })
+        else { throw CocoaError(.fileReadUnknown) }
         var notes: [NoteFileInfo] = []
         for case let url as URL in walker {
-            let values = try? url.resourceValues(forKeys: Set(keys))
-            guard values?.isRegularFile == true, values?.isSymbolicLink != true,
+            let values = try url.resourceValues(forKeys: Set(keys))
+            guard values.isRegularFile == true, values.isSymbolicLink != true,
                 let path = try? NotePath(relativePath(of: url))
             else { continue }
-            notes.append(NoteFileInfo(path: path, modifiedAt: values?.contentModificationDate ?? .distantPast))
+            notes.append(NoteFileInfo(path: path, modifiedAt: values.contentModificationDate ?? .distantPast))
         }
+        // Never publish a partial inventory: reconciliation interprets omissions as deletions.
+        if let enumerationError { throw enumerationError }
         return notes
     }
 
@@ -41,9 +48,13 @@ public final class FileSystemNoteRepository: INoteRepository {
     }
 
     public func info(_ path: NotePath) async throws -> NoteFileInfo? {
-        let values = try? url(for: path).resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey])
-        guard values?.isRegularFile == true else { return nil }
-        return NoteFileInfo(path: path, modifiedAt: values?.contentModificationDate ?? .distantPast)
+        do {
+            let values = try url(for: path).resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey])
+            guard values.isRegularFile == true else { return nil }
+            return NoteFileInfo(path: path, modifiedAt: values.contentModificationDate ?? .distantPast)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+            return nil
+        }
     }
 
     public func write(_ source: String, to path: NotePath) async throws {
